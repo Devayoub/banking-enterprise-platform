@@ -1,0 +1,271 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL"
+                  xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI"
+                  xmlns:dc="http://www.omg.org/spec/DD/20100524/DC"
+                  xmlns:di="http://www.omg.org/spec/DD/20100524/DI"
+                  xmlns:camunda="http://camunda.org/schema/1.0/bpmn"
+                  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                  id="Definitions_LoanApproval"
+                  targetNamespace="http://enterprise.banking/bpmn"
+                  exporter="banking-enterprise-platform"
+                  exporterVersion="0.1.0">
+
+  <bpmn:error id="Error_DisbursementFailed" name="Disbursement failed" errorCode="DISBURSEMENT_FAILED" />
+
+  <bpmn:process id="loan-approval" name="Loan approval" isExecutable="true" camunda:historyTimeToLive="P180D">
+
+    <bpmn:startEvent id="StartEvent_Submitted" name="Loan application submitted">
+      <bpmn:outgoing>Flow_ToScore</bpmn:outgoing>
+    </bpmn:startEvent>
+
+    <bpmn:serviceTask id="Task_ScoreCredit" name="Score credit" camunda:delegateExpression="${creditScoringDelegate}">
+      <bpmn:incoming>Flow_ToScore</bpmn:incoming>
+      <bpmn:outgoing>Flow_ToScoreCheck</bpmn:outgoing>
+    </bpmn:serviceTask>
+
+    <bpmn:exclusiveGateway id="Gateway_ScoreCheck" name="Score at least 500?" default="Flow_ScoreOk">
+      <bpmn:incoming>Flow_ToScoreCheck</bpmn:incoming>
+      <bpmn:outgoing>Flow_ScoreOk</bpmn:outgoing>
+      <bpmn:outgoing>Flow_ScoreTooLow</bpmn:outgoing>
+    </bpmn:exclusiveGateway>
+
+    <bpmn:userTask id="Task_UnderwriterReview" name="Underwriter review" camunda:candidateGroups="underwriters">
+      <bpmn:extensionElements>
+        <camunda:formData>
+          <camunda:formField id="approved" label="Approve this loan?" type="boolean" />
+          <camunda:formField id="underwriterComment" label="Comment" type="string" />
+        </camunda:formData>
+      </bpmn:extensionElements>
+      <bpmn:incoming>Flow_ScoreOk</bpmn:incoming>
+      <bpmn:outgoing>Flow_ToDecision</bpmn:outgoing>
+    </bpmn:userTask>
+
+    <bpmn:exclusiveGateway id="Gateway_UnderwriterDecision" name="Approved?" default="Flow_Rejected">
+      <bpmn:incoming>Flow_ToDecision</bpmn:incoming>
+      <bpmn:outgoing>Flow_Approved</bpmn:outgoing>
+      <bpmn:outgoing>Flow_Rejected</bpmn:outgoing>
+    </bpmn:exclusiveGateway>
+
+    <bpmn:serviceTask id="Task_ReserveFunds" name="Reserve funds" camunda:asyncBefore="true" camunda:delegateExpression="${reserveFundsDelegate}">
+      <bpmn:incoming>Flow_Approved</bpmn:incoming>
+      <bpmn:outgoing>Flow_ToDisburse</bpmn:outgoing>
+    </bpmn:serviceTask>
+
+    <bpmn:boundaryEvent id="Boundary_CompensateReserve" name="Compensate" attachedToRef="Task_ReserveFunds">
+      <bpmn:compensateEventDefinition />
+    </bpmn:boundaryEvent>
+
+    <bpmn:serviceTask id="Task_ReleaseReservation" name="Release reservation" isForCompensation="true" camunda:delegateExpression="${releaseReservationDelegate}" />
+
+    <bpmn:serviceTask id="Task_DisburseFunds" name="Disburse funds" camunda:asyncBefore="true" camunda:delegateExpression="${disburseFundsDelegate}">
+      <bpmn:incoming>Flow_ToDisburse</bpmn:incoming>
+      <bpmn:outgoing>Flow_ToPublishApproved</bpmn:outgoing>
+    </bpmn:serviceTask>
+
+    <bpmn:boundaryEvent id="Boundary_DisbursementFailed" name="Disbursement failed" attachedToRef="Task_DisburseFunds">
+      <bpmn:outgoing>Flow_ToCompensate</bpmn:outgoing>
+      <bpmn:errorEventDefinition errorRef="Error_DisbursementFailed" />
+    </bpmn:boundaryEvent>
+
+    <bpmn:intermediateThrowEvent id="Event_CompensateReservation" name="Compensate reservation">
+      <bpmn:incoming>Flow_ToCompensate</bpmn:incoming>
+      <bpmn:outgoing>Flow_ToPublishFailed</bpmn:outgoing>
+      <bpmn:compensateEventDefinition activityRef="Task_ReserveFunds" waitForCompletion="true" />
+    </bpmn:intermediateThrowEvent>
+
+    <bpmn:serviceTask id="Task_PublishApproved" name="Publish approval" camunda:asyncBefore="true" camunda:delegateExpression="${publishLoanDecisionDelegate}">
+      <bpmn:extensionElements>
+        <camunda:inputOutput>
+          <camunda:inputParameter name="decision">APPROVED</camunda:inputParameter>
+        </camunda:inputOutput>
+      </bpmn:extensionElements>
+      <bpmn:incoming>Flow_ToPublishApproved</bpmn:incoming>
+      <bpmn:outgoing>Flow_ToEndApproved</bpmn:outgoing>
+    </bpmn:serviceTask>
+
+    <bpmn:exclusiveGateway id="Gateway_RejectMerge" name="Rejected">
+      <bpmn:incoming>Flow_ScoreTooLow</bpmn:incoming>
+      <bpmn:incoming>Flow_Rejected</bpmn:incoming>
+      <bpmn:outgoing>Flow_ToPublishRejected</bpmn:outgoing>
+    </bpmn:exclusiveGateway>
+
+    <bpmn:serviceTask id="Task_PublishRejected" name="Publish rejection" camunda:asyncBefore="true" camunda:delegateExpression="${publishLoanDecisionDelegate}">
+      <bpmn:extensionElements>
+        <camunda:inputOutput>
+          <camunda:inputParameter name="decision">REJECTED</camunda:inputParameter>
+        </camunda:inputOutput>
+      </bpmn:extensionElements>
+      <bpmn:incoming>Flow_ToPublishRejected</bpmn:incoming>
+      <bpmn:outgoing>Flow_ToEndRejected</bpmn:outgoing>
+    </bpmn:serviceTask>
+
+    <bpmn:serviceTask id="Task_PublishFailed" name="Publish failure" camunda:asyncBefore="true" camunda:delegateExpression="${publishLoanDecisionDelegate}">
+      <bpmn:extensionElements>
+        <camunda:inputOutput>
+          <camunda:inputParameter name="decision">FAILED</camunda:inputParameter>
+        </camunda:inputOutput>
+      </bpmn:extensionElements>
+      <bpmn:incoming>Flow_ToPublishFailed</bpmn:incoming>
+      <bpmn:outgoing>Flow_ToEndFailed</bpmn:outgoing>
+    </bpmn:serviceTask>
+
+    <bpmn:endEvent id="EndEvent_Approved" name="Loan approved">
+      <bpmn:incoming>Flow_ToEndApproved</bpmn:incoming>
+    </bpmn:endEvent>
+    <bpmn:endEvent id="EndEvent_Rejected" name="Loan rejected">
+      <bpmn:incoming>Flow_ToEndRejected</bpmn:incoming>
+    </bpmn:endEvent>
+    <bpmn:endEvent id="EndEvent_Failed" name="Loan failed, funds released">
+      <bpmn:incoming>Flow_ToEndFailed</bpmn:incoming>
+    </bpmn:endEvent>
+
+    <bpmn:sequenceFlow id="Flow_ToScore" sourceRef="StartEvent_Submitted" targetRef="Task_ScoreCredit" />
+    <bpmn:sequenceFlow id="Flow_ToScoreCheck" sourceRef="Task_ScoreCredit" targetRef="Gateway_ScoreCheck" />
+    <bpmn:sequenceFlow id="Flow_ScoreOk" name="yes" sourceRef="Gateway_ScoreCheck" targetRef="Task_UnderwriterReview" />
+    <bpmn:sequenceFlow id="Flow_ScoreTooLow" name="no" sourceRef="Gateway_ScoreCheck" targetRef="Gateway_RejectMerge">
+      <bpmn:conditionExpression xsi:type="bpmn:tFormalExpression">${creditScore &lt; 500}</bpmn:conditionExpression>
+    </bpmn:sequenceFlow>
+    <bpmn:sequenceFlow id="Flow_ToDecision" sourceRef="Task_UnderwriterReview" targetRef="Gateway_UnderwriterDecision" />
+    <bpmn:sequenceFlow id="Flow_Approved" name="yes" sourceRef="Gateway_UnderwriterDecision" targetRef="Task_ReserveFunds">
+      <bpmn:conditionExpression xsi:type="bpmn:tFormalExpression">${approved == true}</bpmn:conditionExpression>
+    </bpmn:sequenceFlow>
+    <bpmn:sequenceFlow id="Flow_Rejected" name="no" sourceRef="Gateway_UnderwriterDecision" targetRef="Gateway_RejectMerge" />
+    <bpmn:sequenceFlow id="Flow_ToDisburse" sourceRef="Task_ReserveFunds" targetRef="Task_DisburseFunds" />
+    <bpmn:sequenceFlow id="Flow_ToPublishApproved" sourceRef="Task_DisburseFunds" targetRef="Task_PublishApproved" />
+    <bpmn:sequenceFlow id="Flow_ToEndApproved" sourceRef="Task_PublishApproved" targetRef="EndEvent_Approved" />
+    <bpmn:sequenceFlow id="Flow_ToPublishRejected" sourceRef="Gateway_RejectMerge" targetRef="Task_PublishRejected" />
+    <bpmn:sequenceFlow id="Flow_ToEndRejected" sourceRef="Task_PublishRejected" targetRef="EndEvent_Rejected" />
+    <bpmn:sequenceFlow id="Flow_ToCompensate" sourceRef="Boundary_DisbursementFailed" targetRef="Event_CompensateReservation" />
+    <bpmn:sequenceFlow id="Flow_ToPublishFailed" sourceRef="Event_CompensateReservation" targetRef="Task_PublishFailed" />
+    <bpmn:sequenceFlow id="Flow_ToEndFailed" sourceRef="Task_PublishFailed" targetRef="EndEvent_Failed" />
+
+    <bpmn:association id="Association_Compensation" associationDirection="One" sourceRef="Boundary_CompensateReserve" targetRef="Task_ReleaseReservation" />
+  </bpmn:process>
+
+  <bpmndi:BPMNDiagram id="BPMNDiagram_LoanApproval">
+    <bpmndi:BPMNPlane id="BPMNPlane_LoanApproval" bpmnElement="loan-approval">
+      <bpmndi:BPMNShape id="Shape_StartEvent_Submitted" bpmnElement="StartEvent_Submitted">
+        <dc:Bounds x="152" y="222" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Task_ScoreCredit" bpmnElement="Task_ScoreCredit">
+        <dc:Bounds x="240" y="200" width="100" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Gateway_ScoreCheck" bpmnElement="Gateway_ScoreCheck" isMarkerVisible="true">
+        <dc:Bounds x="395" y="215" width="50" height="50" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Task_UnderwriterReview" bpmnElement="Task_UnderwriterReview">
+        <dc:Bounds x="500" y="200" width="100" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Gateway_UnderwriterDecision" bpmnElement="Gateway_UnderwriterDecision" isMarkerVisible="true">
+        <dc:Bounds x="655" y="215" width="50" height="50" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Task_ReserveFunds" bpmnElement="Task_ReserveFunds">
+        <dc:Bounds x="760" y="200" width="100" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Task_ReleaseReservation" bpmnElement="Task_ReleaseReservation">
+        <dc:Bounds x="760" y="340" width="100" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Task_DisburseFunds" bpmnElement="Task_DisburseFunds">
+        <dc:Bounds x="920" y="200" width="100" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Event_CompensateReservation" bpmnElement="Event_CompensateReservation">
+        <dc:Bounds x="952" y="462" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Task_PublishApproved" bpmnElement="Task_PublishApproved">
+        <dc:Bounds x="1080" y="200" width="100" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Gateway_RejectMerge" bpmnElement="Gateway_RejectMerge" isMarkerVisible="true">
+        <dc:Bounds x="955" y="75" width="50" height="50" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Task_PublishRejected" bpmnElement="Task_PublishRejected">
+        <dc:Bounds x="1080" y="60" width="100" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Task_PublishFailed" bpmnElement="Task_PublishFailed">
+        <dc:Bounds x="1080" y="440" width="100" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_EndEvent_Approved" bpmnElement="EndEvent_Approved">
+        <dc:Bounds x="1242" y="222" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_EndEvent_Rejected" bpmnElement="EndEvent_Rejected">
+        <dc:Bounds x="1242" y="82" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_EndEvent_Failed" bpmnElement="EndEvent_Failed">
+        <dc:Bounds x="1242" y="462" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Boundary_CompensateReserve" bpmnElement="Boundary_CompensateReserve">
+        <dc:Bounds x="792" y="262" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Boundary_DisbursementFailed" bpmnElement="Boundary_DisbursementFailed">
+        <dc:Bounds x="952" y="262" width="36" height="36" />
+      </bpmndi:BPMNShape>
+
+      <bpmndi:BPMNEdge id="Edge_Flow_ToScore" bpmnElement="Flow_ToScore">
+        <di:waypoint x="188" y="240" />
+        <di:waypoint x="240" y="240" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_Flow_ToScoreCheck" bpmnElement="Flow_ToScoreCheck">
+        <di:waypoint x="340" y="240" />
+        <di:waypoint x="395" y="240" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_Flow_ScoreOk" bpmnElement="Flow_ScoreOk">
+        <di:waypoint x="445" y="240" />
+        <di:waypoint x="500" y="240" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_Flow_ScoreTooLow" bpmnElement="Flow_ScoreTooLow">
+        <di:waypoint x="420" y="215" />
+        <di:waypoint x="420" y="100" />
+        <di:waypoint x="955" y="100" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_Flow_ToDecision" bpmnElement="Flow_ToDecision">
+        <di:waypoint x="600" y="240" />
+        <di:waypoint x="655" y="240" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_Flow_Approved" bpmnElement="Flow_Approved">
+        <di:waypoint x="705" y="240" />
+        <di:waypoint x="760" y="240" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_Flow_Rejected" bpmnElement="Flow_Rejected">
+        <di:waypoint x="680" y="215" />
+        <di:waypoint x="680" y="160" />
+        <di:waypoint x="980" y="160" />
+        <di:waypoint x="980" y="125" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_Flow_ToDisburse" bpmnElement="Flow_ToDisburse">
+        <di:waypoint x="860" y="240" />
+        <di:waypoint x="920" y="240" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_Flow_ToPublishApproved" bpmnElement="Flow_ToPublishApproved">
+        <di:waypoint x="1020" y="240" />
+        <di:waypoint x="1080" y="240" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_Flow_ToEndApproved" bpmnElement="Flow_ToEndApproved">
+        <di:waypoint x="1180" y="240" />
+        <di:waypoint x="1242" y="240" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_Flow_ToPublishRejected" bpmnElement="Flow_ToPublishRejected">
+        <di:waypoint x="1005" y="100" />
+        <di:waypoint x="1080" y="100" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_Flow_ToEndRejected" bpmnElement="Flow_ToEndRejected">
+        <di:waypoint x="1180" y="100" />
+        <di:waypoint x="1242" y="100" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_Flow_ToCompensate" bpmnElement="Flow_ToCompensate">
+        <di:waypoint x="970" y="298" />
+        <di:waypoint x="970" y="462" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_Flow_ToPublishFailed" bpmnElement="Flow_ToPublishFailed">
+        <di:waypoint x="988" y="480" />
+        <di:waypoint x="1080" y="480" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_Flow_ToEndFailed" bpmnElement="Flow_ToEndFailed">
+        <di:waypoint x="1180" y="480" />
+        <di:waypoint x="1242" y="480" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_Association_Compensation" bpmnElement="Association_Compensation">
+        <di:waypoint x="810" y="298" />
+        <di:waypoint x="810" y="340" />
+      </bpmndi:BPMNEdge>
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+</bpmn:definitions>

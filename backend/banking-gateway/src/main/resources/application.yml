@@ -1,0 +1,41 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: banking-gateway
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: ${KEYCLOAK_ISSUER_URI:http://localhost:8180/realms/banking-realm}
+          audiences: banking-backend
+  cloud:
+    gateway:
+      server:
+        webflux:
+          default-filters:
+            - DedupeResponseHeader=Access-Control-Allow-Origin Access-Control-Allow-Credentials, RETAIN_UNIQUE
+          routes:
+            - id: core-service
+              uri: ${CORE_SERVICE_URL:http://localhost:8081}
+              predicates:
+                - Path=/api/v1/accounts/**,/api/v1/me
+            - id: workflow-service
+              uri: ${WORKFLOW_SERVICE_URL:http://localhost:8083}
+              predicates:
+                - Path=/api/v1/loans/**
+
+banking:
+  cors:
+    allowed-origins: ${FRONTEND_ORIGIN:http://localhost:5173}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      probes:
+        enabled: true

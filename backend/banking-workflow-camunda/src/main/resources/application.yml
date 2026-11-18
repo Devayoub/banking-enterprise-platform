@@ -1,0 +1,47 @@
+server:
+  port: 8083
+  error:
+    include-stacktrace: never
+
+spring:
+  application:
+    name: banking-workflow-camunda
+  datasource:
+    url: ${CAMUNDA_DB_URL:jdbc:postgresql://localhost:5432/camunda}
+    username: ${CAMUNDA_DB_USER:camunda}
+    password: ${CAMUNDA_DB_PASSWORD:camunda}
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    producer:
+      acks: all
+      properties:
+        enable.idempotence: true
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: ${KEYCLOAK_ISSUER_URI:http://localhost:8180/realms/banking-realm}
+          audiences: banking-backend
+
+camunda:
+  bpm:
+    database:
+      schema-update: true
+    job-execution:
+      enabled: true
+    # Local Cockpit / Tasklist login. Change it, and move to Keycloak SSO before any shared environment.
+    admin-user:
+      id: ${CAMUNDA_ADMIN_USER:admin}
+      password: ${CAMUNDA_ADMIN_PASSWORD:admin}
+    filter:
+      create: All tasks
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      probes:
+        enabled: true

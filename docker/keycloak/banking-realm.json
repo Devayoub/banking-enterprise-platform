@@ -1,0 +1,153 @@
+{
+  "realm": "banking-realm",
+  "displayName": "Digital Banking (local)",
+  "enabled": true,
+  "sslRequired": "external",
+  "registrationAllowed": false,
+  "resetPasswordAllowed": false,
+  "rememberMe": false,
+  "loginWithEmailAllowed": true,
+  "duplicateEmailsAllowed": false,
+  "bruteForceProtected": true,
+  "permanentLockout": false,
+  "failureFactor": 5,
+  "waitIncrementSeconds": 60,
+  "maxFailureWaitSeconds": 900,
+  "accessTokenLifespan": 300,
+  "ssoSessionIdleTimeout": 900,
+  "ssoSessionMaxLifespan": 28800,
+  "revokeRefreshToken": true,
+  "refreshTokenMaxReuse": 0,
+  "passwordPolicy": "length(12) and upperCase(1) and lowerCase(1) and digits(1) and specialChars(1) and notUsername",
+  "eventsEnabled": true,
+  "adminEventsEnabled": true,
+  "adminEventsDetailsEnabled": true,
+  "roles": {
+    "realm": [
+      { "name": "CUSTOMER", "description": "Retail banking customer" },
+      { "name": "TELLER", "description": "Branch or back-office teller" },
+      { "name": "UNDERWRITER", "description": "Credit risk underwriter (loan approvals)" },
+      { "name": "ADMIN", "description": "Platform administrator" }
+    ]
+  },
+  "clients": [
+    {
+      "clientId": "banking-frontend",
+      "name": "Banking SPA (React)",
+      "description": "Public client: Authorization Code flow with PKCE (S256). No client secret in the browser.",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": true,
+      "standardFlowEnabled": true,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": false,
+      "frontchannelLogout": true,
+      "rootUrl": "http://localhost:5173",
+      "baseUrl": "/",
+      "redirectUris": ["http://localhost:5173/*"],
+      "webOrigins": ["http://localhost:5173"],
+      "attributes": {
+        "pkce.code.challenge.method": "S256",
+        "post.logout.redirect.uris": "http://localhost:5173/*"
+      },
+      "protocolMappers": [
+        {
+          "name": "banking-backend-audience",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "consentRequired": false,
+          "config": {
+            "included.client.audience": "banking-backend",
+            "access.token.claim": "true",
+            "id.token.claim": "false"
+          }
+        }
+      ]
+    },
+    {
+      "clientId": "banking-backend",
+      "name": "Banking APIs (resource server)",
+      "description": "Represents the platform APIs. Used only as the token audience; it never logs anyone in.",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "bearerOnly": true,
+      "publicClient": false,
+      "standardFlowEnabled": false,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": false
+    },
+    {
+      "clientId": "banking-dev-cli",
+      "name": "LOCAL DEV ONLY - token for Postman/curl",
+      "description": "Password grant for local API testing (ticket BEP-7). Never create this client in a shared environment.",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": true,
+      "standardFlowEnabled": false,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": true,
+      "serviceAccountsEnabled": false,
+      "protocolMappers": [
+        {
+          "name": "banking-backend-audience",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "consentRequired": false,
+          "config": {
+            "included.client.audience": "banking-backend",
+            "access.token.claim": "true",
+            "id.token.claim": "false"
+          }
+        }
+      ]
+    }
+  ],
+  "users": [
+    {
+      "id": "6f1c2a9e-3b7d-4c55-9a1e-0b8f2d4c7e11",
+      "username": "customer.demo",
+      "email": "customer.demo@bank.local",
+      "firstName": "Sara",
+      "lastName": "Demo",
+      "enabled": true,
+      "emailVerified": true,
+      "credentials": [{ "type": "password", "value": "Customer#2026!", "temporary": false }],
+      "realmRoles": ["CUSTOMER"]
+    },
+    {
+      "id": "1a7d3c5e-2b4f-4e6a-8c9d-0e1f2a3b4c22",
+      "username": "teller.demo",
+      "email": "teller.demo@bank.local",
+      "firstName": "Youssef",
+      "lastName": "Teller",
+      "enabled": true,
+      "emailVerified": true,
+      "credentials": [{ "type": "password", "value": "Teller#2026!!", "temporary": false }],
+      "realmRoles": ["TELLER"]
+    },
+    {
+      "id": "9c8b7a6d-5e4f-4a3b-9c2d-1e0f9a8b7c33",
+      "username": "underwriter.demo",
+      "email": "underwriter.demo@bank.local",
+      "firstName": "Nadia",
+      "lastName": "Underwriter",
+      "enabled": true,
+      "emailVerified": true,
+      "credentials": [{ "type": "password", "value": "Underwriter#2026!", "temporary": false }],
+      "realmRoles": ["UNDERWRITER"]
+    },
+    {
+      "id": "4d3c2b1a-0f9e-4d8c-a7b6-5c4d3e2f1a44",
+      "username": "admin.demo",
+      "email": "admin.demo@bank.local",
+      "firstName": "Platform",
+      "lastName": "Admin",
+      "enabled": true,
+      "emailVerified": true,
+      "credentials": [{ "type": "password", "value": "PlatformAdmin#2026!", "temporary": false }],
+      "realmRoles": ["ADMIN"]
+    }
+  ]
+}
