@@ -1,0 +1,29 @@
+# LOCAL DEVELOPMENT ONLY. Values match docker/docker-compose.yml and docker/.env.example.
+# Activate with --spring.profiles.active=local.
+spring:
+  datasource:
+    url: jdbc:postgresql://localhost:5432/camunda
+    username: camunda
+    password: ${CAMUNDA_DB_PASSWORD:camunda}
+  kafka:
+    bootstrap-servers: localhost:9092
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: http://localhost:8180/realms/banking-realm
+
+camunda:
+  bpm:
+    database:
+      schema-update: true
+    # Local Cockpit / Tasklist login. Shared environments use Keycloak SSO instead of a built-in admin.
+    admin-user:
+      id: admin
+      password: ${CAMUNDA_ADMIN_PASSWORD:admin}
+    filter:
+      create: All tasks
+
+logging:
+  level:
+    com.enterprise.banking: DEBUG

@@ -1,0 +1,18 @@
+# LOCAL DEVELOPMENT ONLY. Activate with --spring.profiles.active=local.
+spring:
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: http://localhost:8180/realms/banking-realm
+
+banking:
+  services:
+    core-url: http://localhost:8081
+    workflow-url: http://localhost:8083
+  cors:
+    allowed-origins: http://localhost:5173
+
+logging:
+  level:
+    com.enterprise.banking: DEBUG

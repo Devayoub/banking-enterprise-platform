@@ -1,3 +1,5 @@
+# Configuration shared by every environment. Environment-specific values have no default:
+# they come from environment variables, or from application-local.yml with the "local" profile.
 server:
   port: 8080
 
@@ -8,7 +10,7 @@ spring:
     oauth2:
       resourceserver:
         jwt:
-          issuer-uri: ${KEYCLOAK_ISSUER_URI:http://localhost:8180/realms/banking-realm}
+          issuer-uri: ${KEYCLOAK_ISSUER_URI}
           audiences: banking-backend
   cloud:
     gateway:
@@ -18,17 +20,20 @@ spring:
             - DedupeResponseHeader=Access-Control-Allow-Origin Access-Control-Allow-Credentials, RETAIN_UNIQUE
           routes:
             - id: core-service
-              uri: ${CORE_SERVICE_URL:http://localhost:8081}
+              uri: ${banking.services.core-url}
               predicates:
                 - Path=/api/v1/accounts/**,/api/v1/me
             - id: workflow-service
-              uri: ${WORKFLOW_SERVICE_URL:http://localhost:8083}
+              uri: ${banking.services.workflow-url}
               predicates:
                 - Path=/api/v1/loans/**
 
 banking:
+  services:
+    core-url: ${CORE_SERVICE_URL}
+    workflow-url: ${WORKFLOW_SERVICE_URL}
   cors:
-    allowed-origins: ${FRONTEND_ORIGIN:http://localhost:5173}
+    allowed-origins: ${FRONTEND_ORIGIN}
 
 management:
   endpoints:

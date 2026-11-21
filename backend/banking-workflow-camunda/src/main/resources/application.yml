@@ -1,3 +1,5 @@
+# Configuration shared by every environment. Environment-specific values have no default:
+# they come from environment variables, or from application-local.yml with the "local" profile.
 server:
   port: 8083
   error:
@@ -7,11 +9,11 @@ spring:
   application:
     name: banking-workflow-camunda
   datasource:
-    url: ${CAMUNDA_DB_URL:jdbc:postgresql://localhost:5432/camunda}
-    username: ${CAMUNDA_DB_USER:camunda}
-    password: ${CAMUNDA_DB_PASSWORD:camunda}
+    url: ${CAMUNDA_DB_URL}
+    username: ${CAMUNDA_DB_USER}
+    password: ${CAMUNDA_DB_PASSWORD}
   kafka:
-    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS}
     producer:
       acks: all
       properties:
@@ -20,21 +22,17 @@ spring:
     oauth2:
       resourceserver:
         jwt:
-          issuer-uri: ${KEYCLOAK_ISSUER_URI:http://localhost:8180/realms/banking-realm}
+          issuer-uri: ${KEYCLOAK_ISSUER_URI}
           audiences: banking-backend
 
 camunda:
   bpm:
     database:
-      schema-update: true
+      # Outside local development the engine schema is created and migrated with Camunda's SQL
+      # scripts under change control, never by the application at startup.
+      schema-update: false
     job-execution:
       enabled: true
-    # Local Cockpit / Tasklist login. Change it, and move to Keycloak SSO before any shared environment.
-    admin-user:
-      id: ${CAMUNDA_ADMIN_USER:admin}
-      password: ${CAMUNDA_ADMIN_PASSWORD:admin}
-    filter:
-      create: All tasks
 
 management:
   endpoints:

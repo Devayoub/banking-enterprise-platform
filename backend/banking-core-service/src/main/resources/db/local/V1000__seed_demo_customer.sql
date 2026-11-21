@@ -1,4 +1,4 @@
--- DEV PROFILE ONLY (spring.profiles.active=dev). Never loaded in other environments.
+-- LOCAL PROFILE ONLY (spring.profiles.active=local). Never loaded in other environments.
 -- Owner id matches the fixed id of user "customer.demo" in docker/keycloak/banking-realm.json.
 -- IBANs are the well-known documentation examples, not real accounts.
 

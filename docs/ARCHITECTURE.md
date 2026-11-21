@@ -264,7 +264,7 @@ Rules of thumb for every new feature:
 |---|---|---|
 | Transport | HSTS, CSP, `no-referrer` at the gateway | TLS 1.2+ everywhere, mTLS between services |
 | Data at rest | Separate DB and role per bounded context | Storage encryption, field-level encryption for PII (Vault Transit or pgcrypto), key rotation |
-| Secrets | Dev defaults in `.env.example` only | HashiCorp Vault or a cloud KMS, no secrets in images or Git |
+| Secrets | Local values only in `application-local.yml` and `.env.example`; no defaults in shared config | HashiCorp Vault or a cloud KMS, no secrets in images or Git |
 | Audit (PCI-DSS req. 10) | Dedicated `AUDIT` logger, actor, action, resource, outcome, correlation id | Ship to append-only (WORM) storage, retain at least 1 year |
 | Card data (PCI-DSS) | No PAN stored anywhere | Tokenize through the card processor to keep the platform out of PCI scope |
 | PII in logs | `PiiMasker` for IBAN and email, masked IBAN in APIs | Log scanning in CI |

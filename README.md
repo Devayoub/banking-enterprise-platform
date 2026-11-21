@@ -69,15 +69,38 @@ cp docker/.env.example docker/.env      # optional: change the local passwords
 cd backend
 mvn clean install
 
-# one terminal per service
-mvn -pl banking-core-service spring-boot:run -Dspring-boot.run.profiles=dev   # dev profile loads demo accounts
-mvn -pl banking-gateway spring-boot:run
-mvn -pl banking-integration-camel spring-boot:run
-mvn -pl banking-workflow-camunda spring-boot:run
+# one terminal per service, always with the "local" profile
+mvn -pl banking-core-service spring-boot:run -Dspring-boot.run.profiles=local
+mvn -pl banking-gateway spring-boot:run -Dspring-boot.run.profiles=local
+mvn -pl banking-integration-camel spring-boot:run -Dspring-boot.run.profiles=local
+mvn -pl banking-workflow-camunda spring-boot:run -Dspring-boot.run.profiles=local
 ```
 
 Camunda Cockpit and Tasklist: http://localhost:8083/camunda (`admin` / `admin`).
 Core service API docs: http://localhost:8081/swagger-ui.html
+
+### Configuration profiles
+
+Each service has two configuration files in `src/main/resources`:
+
+| File | Content | Used |
+|---|---|---|
+| `application.yml` | Settings shared by every environment. URLs and credentials are `${ENV_VAR}` placeholders **with no default** | Always |
+| `application-local.yml` | `localhost` addresses and the Docker stack's dev credentials, demo data, Swagger UI, Camunda admin user, debug logs | Only with the `local` profile |
+
+Other environments (dev, staging, production) do not use a profile file: they inject the variables
+(`CORE_DB_URL`, `KEYCLOAK_ISSUER_URI`, `KAFKA_BOOTSTRAP_SERVERS`…) from Kubernetes, with secrets from a vault.
+If a variable is missing, the service fails at startup instead of silently connecting to localhost.
+
+Ways to activate the local profile:
+
+* Maven: `-Dspring-boot.run.profiles=local`
+* Jar: `java -jar target/<service>.jar --spring.profiles.active=local`
+* Environment variable: `SPRING_PROFILES_ACTIVE=local`
+* IntelliJ: Run configuration → Active profiles → `local`
+
+If you changed the passwords in `docker/.env`, export the same variables (`CORE_DB_PASSWORD`, `MQ_PASSWORD`…)
+before starting the services: the local profile reads them, with the Docker defaults as fallback.
 
 ### 3. Run the frontend
 

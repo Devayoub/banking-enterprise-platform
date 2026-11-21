@@ -52,7 +52,7 @@ public class GatewaySecurityConfig {
 
     @Bean
     CorsConfigurationSource corsConfigurationSource(
-            @Value("${banking.cors.allowed-origins:http://localhost:5173}") List<String> allowedOrigins) {
+            @Value("${banking.cors.allowed-origins}") List<String> allowedOrigins) {
         CorsConfiguration cors = new CorsConfiguration();
         cors.setAllowedOrigins(allowedOrigins);
         cors.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));

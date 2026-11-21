@@ -1,3 +1,5 @@
+# Configuration shared by every environment. Environment-specific values have no default:
+# they come from environment variables, or from application-local.yml with the "local" profile.
 server:
   port: 8082
 
@@ -6,14 +8,14 @@ spring:
     name: banking-integration-camel
   # JMS provider for the legacy core. ActiveMQ Classic locally; IBM MQ in bank environments.
   activemq:
-    broker-url: ${MQ_BROKER_URL:tcp://localhost:61616}
-    user: ${MQ_USER:banking}
-    password: ${MQ_PASSWORD:banking}
+    broker-url: ${MQ_BROKER_URL}
+    user: ${MQ_USER}
+    password: ${MQ_PASSWORD}
 
 camel:
   component:
     kafka:
-      brokers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+      brokers: ${KAFKA_BOOTSTRAP_SERVERS}
       request-required-acks: all
       enable-idempotence: true
 

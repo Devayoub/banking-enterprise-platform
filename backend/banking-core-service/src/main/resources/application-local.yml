@@ -1,0 +1,27 @@
+# LOCAL DEVELOPMENT ONLY. Values match docker/docker-compose.yml and docker/.env.example.
+# Activate with --spring.profiles.active=local (or SPRING_PROFILES_ACTIVE=local).
+spring:
+  datasource:
+    url: jdbc:postgresql://localhost:5432/core_banking
+    username: core_banking
+    password: ${CORE_DB_PASSWORD:core_banking}
+  kafka:
+    bootstrap-servers: localhost:9092
+  flyway:
+    # Adds the demo customer's accounts and transactions (see db/local).
+    locations: classpath:db/migration,classpath:db/local
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: http://localhost:8180/realms/banking-realm
+
+springdoc:
+  api-docs:
+    enabled: true
+  swagger-ui:
+    enabled: true
+
+logging:
+  level:
+    com.enterprise.banking: DEBUG
